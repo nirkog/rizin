@@ -19,6 +19,7 @@ rz_analysis_sources = [
   'rzil/rzil_stats.c',
   'rzil/rzil_trace.c',
   'rzil/rzil.c',
+  'rzil/avr/il_avr.c',
   'fcn.c',
   'hint.c',
   'il_trace.c',
