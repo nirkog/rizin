@@ -53,7 +53,7 @@ static bool is_x86_ret(RzDebug *dbg, ut64 addr) {
 
 RZ_API bool rz_core_debug_step_one(RzCore *core, int times) {
 	if (rz_core_is_debug(core)) {
-		rz_reg_arena_swap(core->dbg->reg, true);
+		rz_reg_arena_swap(core->dbg->reg, true);                                                   // OK
 		// sync registers for BSD PT_STEP/PT_CONT
 		rz_debug_reg_sync(core->dbg, RZ_REG_TYPE_GPR, false);
 		ut64 pc = rz_debug_reg_get(core->dbg, "PC");
@@ -79,7 +79,7 @@ RZ_API bool rz_core_debug_step_one(RzCore *core, int times) {
 RZ_IPI void rz_core_debug_continue(RzCore *core) {
 	if (rz_core_is_debug(core)) {
 		rz_cons_break_push(rz_core_static_debug_stop, core->dbg);
-		rz_reg_arena_swap(core->dbg->reg, true);
+		rz_reg_arena_swap(core->dbg->reg, true);                                                   // OK
 #if __linux__
 		core->dbg->continue_all_threads = true;
 #endif
@@ -98,11 +98,11 @@ RZ_API bool rz_core_debug_continue_until(RzCore *core, ut64 addr, ut64 to) {
 	if (!strcmp(core->dbg->btalgo, "trace") && core->dbg->arch && !strcmp(core->dbg->arch, "x86") && core->dbg->bits == 4) {
 		unsigned long steps = 0;
 		long level = 0;
-		const char *pc_name = core->dbg->reg->name[RZ_REG_NAME_PC];
+		const char *pc_name = core->dbg->reg->name[RZ_REG_NAME_PC];                                // OK
 		ut64 prev_pc = UT64_MAX;
 		bool prev_call = false;
 		bool prev_ret = false;
-		const char *sp_name = core->dbg->reg->name[RZ_REG_NAME_SP];
+		const char *sp_name = core->dbg->reg->name[RZ_REG_NAME_SP];                                // OK
 		ut64 old_sp, cur_sp;
 		rz_cons_break_push(NULL, NULL);
 		rz_list_free(core->dbg->call_frames);
@@ -163,7 +163,7 @@ RZ_API bool rz_core_debug_continue_until(RzCore *core, ut64 addr, ut64 to) {
 		return true;
 	}
 	eprintf("Continue until 0x%08" PFMT64x " using %d bpsize\n", addr, core->dbg->bpsize);
-	rz_reg_arena_swap(core->dbg->reg, true);
+	rz_reg_arena_swap(core->dbg->reg, true);                                                       // OK
 	if (rz_bp_add_sw(core->dbg->bp, addr, core->dbg->bpsize, RZ_PERM_X)) {
 		if (rz_debug_is_dead(core->dbg)) {
 			eprintf("Cannot continue, run ood?\n");

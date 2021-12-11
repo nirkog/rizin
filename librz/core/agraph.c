@@ -3536,9 +3536,9 @@ static int agraph_refresh(struct agraph_refresh_data *grd) {
 	// allow to change the current function during debugging
 	if (g->is_instep && core->bin->is_debugger) {
 		// seek only when the graph node changes
-		const char *pc = rz_reg_get_name(core->dbg->reg, RZ_REG_NAME_PC);
-		RzRegItem *r = rz_reg_get(core->dbg->reg, pc, -1);
-		ut64 addr = rz_reg_get_value(core->dbg->reg, r);
+		const char *pc = rz_reg_get_name(core->dbg->reg, RZ_REG_NAME_PC);                          // OK
+		RzRegItem *r = rz_reg_get(core->dbg->reg, pc, -1);                                         // OK
+		ut64 addr = rz_reg_get_value(core->dbg->reg, r);                                           // OK
 		RzANode *acur = get_anode(g->curnode);
 
 		RzAnalysisBlock *block = rz_analysis_find_most_relevant_block_in(core->analysis, addr);

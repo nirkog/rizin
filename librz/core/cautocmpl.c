@@ -434,7 +434,7 @@ static void autocmplt_cmd_arg_global_var(RzCore *core, RzLineNSCompletionResult 
 
 static void autocmplt_cmd_arg_reg_filter(RzCore *core, const RzCmdDesc *cd, RzLineNSCompletionResult *res, const char *s, size_t len) {
 	bool is_analysis = cd->name && cd->name[0] == 'a';
-	RzReg *reg = is_analysis ? core->analysis->reg : core->dbg->reg;
+	RzReg *reg = is_analysis ? core->analysis->reg : core->dbg->reg;                               // OK
 	if (!reg) {
 		return;
 	}
