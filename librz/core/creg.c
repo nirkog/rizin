@@ -17,6 +17,30 @@ RZ_API RzReg *rz_core_reg_default(RzCore *core) {
 	return rz_core_is_debug(core) ? core->dbg->reg : core->analysis->reg;
 }
 
+/// rz_reg_getv_by_role_or_name() on rz_core_reg_default()
+RZ_API ut64 rz_core_reg_getv_by_role_or_name(RzCore *core, const char *name) {
+	// this logic has to be in sync with rz_core_reg_default().
+	if (rz_core_is_debug(core)) {
+		// call this instead of rz_reg_getv_... directly because it also syncs
+		return rz_debug_reg_get(core->dbg, name);
+	}
+	return rz_reg_getv_by_role_or_name(core->analysis->reg, name);
+}
+
+/// set on rz_core_reg_default()
+RZ_API bool rz_core_reg_set_by_role_or_name(RzCore *core, const char *name, ut64 num) {
+	// this logic has to be in sync with rz_core_reg_default().
+	if (rz_core_is_debug(core)) {
+		// call this instead of rz_reg_getv_... directly because it also syncs
+		return rz_debug_reg_set(core->dbg, name, num);
+	}
+	RzRegItem *ri = rz_reg_get_by_role_or_name(core->analysis->reg, name);
+	if (!ri) {
+		return false;
+	}
+	return rz_reg_set_value(core->analysis->reg, ri, num);
+}
+
 /// Construct the list of registers that should be applied as flags by default
 /// (e.g. because their size matches the pointer size)
 RZ_IPI RzList /*<RzRegItem>*/ *rz_core_reg_flags_candidates(RzCore *core, RzReg *reg) {
