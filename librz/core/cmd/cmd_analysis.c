@@ -9242,6 +9242,12 @@ RZ_IPI RzCmdStatus rz_rzil_vm_step_till_addr_handler(RzCore *core, int argc, con
 }
 
 RZ_IPI RzCmdStatus rz_rzil_vm_status_handler(RzCore *core, int argc, const char **argv, RzOutputMode mode) {
-	rz_core_analysis_rzil_vm_status(core, argc > 1 ? argv[1] : NULL, mode);
+	if (argc == 3) {
+		ut64 value = rz_num_math(core->num, argv[2]);
+		rz_core_analysis_rzil_vm_set(core, argv[1], value);
+	} else {
+		// print variable or all variables
+		rz_core_analysis_rzil_vm_status(core, argc == 2 ? argv[1] : NULL, mode);
+	}
 	return RZ_CMD_STATUS_OK;
 }
