@@ -45,47 +45,59 @@ static void _6502_analysis_update_flags(RzAnalysisOp *op, int flags) {
 }
 
 /* ORA, AND, EOR, ADC, STA, LDA, CMP and SBC share this pattern */
-static void _6502_analysis_esil_get_addr_pattern1(RzAnalysisOp *op, const ut8 *data, int len, char *addrbuf, int addrsize) {
+static void _6502_analysis_esil_get_addr_pattern1(RzAnalysisOp *op, const ut8 *data, int len, char *addrbuf, int addrsize, ut16 *imm_out) {
 	if (len < 1) {
 		return;
 	}
 	// turn off bits 5, 6 and 7
+	ut16 imm = 0;
 	switch (data[0] & 0x1f) { // 0x1f = b00111111
 	case 0x09: // op #$ff
 		op->cycles = 2;
-		snprintf(addrbuf, addrsize, "0x%02x", (len > 1) ? data[1] : 0);
+		imm = len > 1 ? data[1] : 0;
+		snprintf(addrbuf, addrsize, "0x%02x", (unsigned int)imm);
 		break;
 	case 0x05: // op $ff
 		op->cycles = 3;
-		snprintf(addrbuf, addrsize, "0x%02x", (len > 1) ? data[1] : 0);
+		imm = len > 1 ? data[1] : 0;
+		snprintf(addrbuf, addrsize, "0x%02x", (unsigned int)imm);
 		break;
 	case 0x15: // op $ff,x
 		op->cycles = 4;
-		snprintf(addrbuf, addrsize, "x,0x%02x,+", (len > 1) ? data[1] : 0);
+		imm = len > 1 ? data[1] : 0;
+		snprintf(addrbuf, addrsize, "x,0x%02x,+", (unsigned int)imm);
 		break;
 	case 0x0d: // op $ffff
 		op->cycles = 4;
-		snprintf(addrbuf, addrsize, "0x%04x", (len > 2) ? (data[1] | data[2] << 8) : 0);
+		imm = (len > 2) ? ((ut16)data[1] | (ut16)data[2] << 8) : 0;
+		snprintf(addrbuf, addrsize, "0x%04x", (unsigned int)imm);
 		break;
 	case 0x1d: // op $ffff,x
 		// FIXME: Add 1 if page boundary is crossed.
 		op->cycles = 4;
-		snprintf(addrbuf, addrsize, "x,0x%04x,+", (len > 2) ? data[1] | data[2] << 8 : 0);
+		imm = (len > 2) ? ((ut16)data[1] | (ut16)data[2] << 8) : 0;
+		snprintf(addrbuf, addrsize, "x,0x%04x,+", (unsigned int)imm);
 		break;
 	case 0x19: // op $ffff,y
 		// FIXME: Add 1 if page boundary is crossed.
 		op->cycles = 4;
-		snprintf(addrbuf, addrsize, "y,0x%04x,+", (len > 2) ? data[1] | data[2] << 8 : 0);
+		imm = (len > 2) ? ((ut16)data[1] | (ut16)data[2] << 8) : 0;
+		snprintf(addrbuf, addrsize, "y,0x%04x,+", (unsigned int)imm);
 		break;
 	case 0x01: // op ($ff,x)
 		op->cycles = 6;
-		snprintf(addrbuf, addrsize, "x,0x%02x,+,[2]", (len > 1) ? data[1] : 0);
+		imm = data[1];
+		snprintf(addrbuf, addrsize, "x,0x%02x,+,[2]", (unsigned int)imm);
 		break;
 	case 0x11: // op ($ff),y
 		// FIXME: Add 1 if page boundary is crossed.
 		op->cycles = 5;
-		snprintf(addrbuf, addrsize, "y,0x%02x,[2],+", (len > 1) ? data[1] : 0);
+		imm = len > 1 ? data[1] : 0;
+		snprintf(addrbuf, addrsize, "y,0x%02x,[2],+", (unsigned int)imm);
 		break;
+	}
+	if (imm_out) {
+		*imm_out = imm;
 	}
 }
 
@@ -307,6 +319,10 @@ static void _6502_analysis_esil_flags(RzAnalysisOp *op, ut8 data0) {
 	rz_strbuf_setf(&op->esil, "%d,%c,=", enabled, flag);
 }
 
+static RzPVector *il_6502_op_ld(const char *reg, ut16 imm) {
+	return rz_il_make_oplist(1, rz_il_op_new_set(reg, rz_il_op_new_bitv_from_ut64(8, imm)));
+}
+
 static int _6502_op(RzAnalysis *analysis, RzAnalysisOp *op, ut64 addr, const ut8 *data, int len, RzAnalysisOpMask mask) {
 	char addrbuf[64];
 	const int buffsize = sizeof(addrbuf) - 1;
@@ -319,6 +335,7 @@ static int _6502_op(RzAnalysis *analysis, RzAnalysisOp *op, ut64 addr, const ut8
 	op->type = RZ_ANALYSIS_OP_TYPE_UNK;
 	op->id = data[0];
 	rz_strbuf_init(&op->esil);
+	RzPVector *ilops = NULL;
 	switch (data[0]) {
 	case 0x02:
 	case 0x03:
@@ -475,7 +492,7 @@ static int _6502_op(RzAnalysis *analysis, RzAnalysisOp *op, ut64 addr, const ut8
 		// FIXME: update V
 		// FIXME: support BCD mode
 		op->type = RZ_ANALYSIS_OP_TYPE_ADD;
-		_6502_analysis_esil_get_addr_pattern1(op, data, len, addrbuf, buffsize);
+		_6502_analysis_esil_get_addr_pattern1(op, data, len, addrbuf, buffsize, NULL);
 		if (data[0] == 0x69) { // immediate mode
 			rz_strbuf_setf(&op->esil, "%s,a,+=,7,$c,C,a,+=,7,$c,|,C,:=", addrbuf);
 		} else {
@@ -497,7 +514,7 @@ static int _6502_op(RzAnalysis *analysis, RzAnalysisOp *op, ut64 addr, const ut8
 		// FIXME: update V
 		// FIXME: support BCD mode
 		op->type = RZ_ANALYSIS_OP_TYPE_SUB;
-		_6502_analysis_esil_get_addr_pattern1(op, data, len, addrbuf, buffsize);
+		_6502_analysis_esil_get_addr_pattern1(op, data, len, addrbuf, buffsize, NULL);
 		if (data[0] == 0xe9) { // immediate mode
 			rz_strbuf_setf(&op->esil, "C,!,%s,+,a,-=", addrbuf);
 		} else {
@@ -517,7 +534,7 @@ static int _6502_op(RzAnalysis *analysis, RzAnalysisOp *op, ut64 addr, const ut8
 	case 0x01: // ora ($ff,x)
 	case 0x11: // ora ($ff),y
 		op->type = RZ_ANALYSIS_OP_TYPE_OR;
-		_6502_analysis_esil_get_addr_pattern1(op, data, len, addrbuf, buffsize);
+		_6502_analysis_esil_get_addr_pattern1(op, data, len, addrbuf, buffsize, NULL);
 		if (data[0] == 0x09) { // immediate mode
 			rz_strbuf_setf(&op->esil, "%s,a,|=", addrbuf);
 		} else {
@@ -535,7 +552,7 @@ static int _6502_op(RzAnalysis *analysis, RzAnalysisOp *op, ut64 addr, const ut8
 	case 0x21: // and ($ff,x)
 	case 0x31: // and ($ff),y
 		op->type = RZ_ANALYSIS_OP_TYPE_AND;
-		_6502_analysis_esil_get_addr_pattern1(op, data, len, addrbuf, buffsize);
+		_6502_analysis_esil_get_addr_pattern1(op, data, len, addrbuf, buffsize, NULL);
 		if (data[0] == 0x29) { // immediate mode
 			rz_strbuf_setf(&op->esil, "%s,a,&=", addrbuf);
 		} else {
@@ -553,7 +570,7 @@ static int _6502_op(RzAnalysis *analysis, RzAnalysisOp *op, ut64 addr, const ut8
 	case 0x41: // eor ($ff,x)
 	case 0x51: // eor ($ff),y
 		op->type = RZ_ANALYSIS_OP_TYPE_XOR;
-		_6502_analysis_esil_get_addr_pattern1(op, data, len, addrbuf, buffsize);
+		_6502_analysis_esil_get_addr_pattern1(op, data, len, addrbuf, buffsize, NULL);
 		if (data[0] == 0x49) { // immediate mode
 			rz_strbuf_setf(&op->esil, "%s,a,^=", addrbuf);
 		} else {
@@ -667,7 +684,7 @@ static int _6502_op(RzAnalysis *analysis, RzAnalysisOp *op, ut64 addr, const ut8
 	case 0xc1: // cmp ($ff,x)
 	case 0xd1: // cmp ($ff),y
 		op->type = RZ_ANALYSIS_OP_TYPE_CMP;
-		_6502_analysis_esil_get_addr_pattern1(op, data, len, addrbuf, buffsize);
+		_6502_analysis_esil_get_addr_pattern1(op, data, len, addrbuf, buffsize, NULL);
 		if (data[0] == 0xc9) { // immediate mode
 			rz_strbuf_setf(&op->esil, "%s,a,==", addrbuf);
 		} else {
@@ -798,13 +815,15 @@ static int _6502_op(RzAnalysis *analysis, RzAnalysisOp *op, ut64 addr, const ut8
 	case 0xa1: // lda ($ff,x)
 	case 0xb1: // lda ($ff),y
 		op->type = RZ_ANALYSIS_OP_TYPE_LOAD;
-		_6502_analysis_esil_get_addr_pattern1(op, data, len, addrbuf, buffsize);
+		ut16 imm = 0;
+		_6502_analysis_esil_get_addr_pattern1(op, data, len, addrbuf, buffsize, &imm);
 		if (data[0] == 0xa9) { // immediate mode
 			rz_strbuf_setf(&op->esil, "%s,a,=", addrbuf);
 		} else {
 			rz_strbuf_setf(&op->esil, "%s,[1],a,=", addrbuf);
 		}
 		_6502_analysis_update_flags(op, _6502_FLAGS_NZ);
+		ilops = il_6502_op_ld("a", imm);
 		break;
 	// LDX
 	case 0xa2: // ldx #$ff
@@ -845,7 +864,7 @@ static int _6502_op(RzAnalysis *analysis, RzAnalysisOp *op, ut64 addr, const ut8
 	case 0x81: // sta ($ff,x)
 	case 0x91: // sta ($ff),y
 		op->type = RZ_ANALYSIS_OP_TYPE_STORE;
-		_6502_analysis_esil_get_addr_pattern1(op, data, len, addrbuf, buffsize);
+		_6502_analysis_esil_get_addr_pattern1(op, data, len, addrbuf, buffsize, NULL);
 		rz_strbuf_setf(&op->esil, "a,%s,=[1]", addrbuf);
 		break;
 	// STX
@@ -906,6 +925,11 @@ static int _6502_op(RzAnalysis *analysis, RzAnalysisOp *op, ut64 addr, const ut8
 		_6502_analysis_esil_mov(op, data[0]);
 		break;
 	}
+	if (ilops) {
+		op->rzil_op = RZ_NEW0(RzAnalysisRzilOp);
+		op->rzil_op->ops = ilops;
+		op->rzil_op->root_node = NULL;
+	}
 	return op->size;
 }
 
@@ -954,6 +978,38 @@ static int address_bits(RzAnalysis *analysis, int bits) {
 	return 16;
 }
 
+static bool il_6502_init(RzAnalysis *analysis) {
+	rz_return_val_if_fail(analysis && analysis->rzil, false);
+	RzAnalysisRzil *rzil = analysis->rzil;
+	if (rzil->inited) {
+		RZ_LOG_ERROR("RzIL: 6502: already initialized\n");
+		return true;
+	}
+	RzILVM *vm = rzil->vm;
+	if (!rz_il_vm_init(rzil->vm, 0, 16, 8)) {
+		RZ_LOG_ERROR("RzIL: 6502: failed to initialize VM\n");
+		return false;
+	}
+
+	rz_il_vm_add_reg(vm, "a", 8);
+	rz_il_vm_add_reg(vm, "x", 8);
+	rz_il_vm_add_reg(vm, "y", 8);
+	rz_il_vm_add_reg(vm, "sp", 8);
+
+	return true;
+}
+
+static bool il_6502_fini(RzAnalysis *analysis) {
+	rz_return_val_if_fail(analysis && analysis->rzil, false);
+	RzAnalysisRzil *rzil = analysis->rzil;
+	if (rzil->vm) {
+		rz_il_vm_fini(rzil->vm);
+	}
+	rzil->user = NULL;
+	rzil->inited = false;
+	return true;
+}
+
 RzAnalysisPlugin rz_analysis_plugin_6502 = {
 	.name = "6502",
 	.desc = "6502/NES analysis plugin",
@@ -966,6 +1022,8 @@ RzAnalysisPlugin rz_analysis_plugin_6502 = {
 	.esil = true,
 	.esil_init = esil_6502_init,
 	.esil_fini = esil_6502_fini,
+	.rzil_init = il_6502_init,
+	.rzil_fini = il_6502_fini
 };
 
 #ifndef RZ_PLUGIN_INCORE
