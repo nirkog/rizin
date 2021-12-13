@@ -422,6 +422,62 @@ RZ_IPI void rz_core_analysis_rzil_reinit(RzCore *core) {
 	}
 }
 
+RZ_IPI void rz_core_analysis_rzil_vm_set(RzCore *core, const char *var_name, ut64 value) {
+	rz_return_if_fail(core && core->analysis && var_name);
+
+	RzAnalysisRzil *rzil = core->analysis->rzil;
+	if (!rzil || !rzil->vm) {
+		RZ_LOG_ERROR("RzIL: Run 'aezi' first to initialize the VM\n");
+		return;
+	}
+
+	bool found = false;
+	RzBitVector *bv = NULL;
+
+	if (!strcmp(var_name, "PC")) {
+		found = true;
+		bv = rz_bv_new_from_ut64(rzil->vm->pc->len, value);
+		rz_bv_free(rzil->vm->pc);
+		rzil->vm->pc = bv;
+	} else {
+		RzILVal *oldval = NULL;
+		RzILVal *newval = NULL;
+		RzILVar *var = NULL;
+		void **it = NULL;
+		rz_pvector_foreach (&rzil->vm->vm_global_variable_list, it) {
+			var = *it;
+			if (var_name && strcmp(var_name, var->var_name)) {
+				continue;
+			}
+			found = true;
+			oldval = rz_il_hash_find_val_by_var(rzil->vm, var);
+			switch (oldval->type) {
+			case RZIL_VAR_TYPE_BV:
+				bv = rz_bv_new_from_ut64(oldval->data.bv->len, value);
+				newval = rz_il_vm_create_value_bitv(rzil->vm, bv);
+				break;
+			case RZIL_VAR_TYPE_BOOL:
+				newval = rz_il_vm_create_value_bool(rzil->vm, value);
+				break;
+			case RZIL_VAR_TYPE_UNK:
+				RZ_LOG_ERROR("RzIL: cannot set an Unknown type via command line\n");
+				break;
+			default:
+				rz_warn_if_reached();
+				break;
+			}
+
+			rz_il_hash_cancel_binding(rzil->vm, var);
+			rz_il_hash_bind(rzil->vm, var, newval);
+			break;
+		}
+	}
+
+	if (found) {
+		rz_cons_printf("%s = 0x%" PFMT64x "\n", var_name, value);
+	}
+}
+
 typedef struct il_print_t {
 	RzOutputMode mode;
 	const char *name;
@@ -487,7 +543,7 @@ static void rzil_print_register_unk(ILPrint *p) {
 RZ_IPI void rz_core_analysis_rzil_vm_status(RzCore *core, const char *var_name, RzOutputMode mode) {
 	RzAnalysisRzil *rzil = core->analysis->rzil;
 	if (!rzil || !rzil->vm) {
-		RZ_LOG_ERROR("RzIL: the VM is not initialized.\n");
+		RZ_LOG_ERROR("RzIL: Run 'aezi' first to initialize the VM\n");
 		return;
 	}
 
