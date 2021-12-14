@@ -6,14 +6,17 @@
 #include "minunit.h"
 
 static bool test_rzil_vm_init() {
-	RzILVM *vm = rz_il_vm_new(0, 8, 8);
+	RzBuffer *b = rz_buf_new_empty(10);
+	RzILVM *vm = rz_il_vm_new(0, 8, b, true);
 	mu_assert_eq(vm->addr_size, 8, "VM Init");
 	rz_il_vm_free(vm);
+	rz_buf_free(b);
 	mu_end;
 }
 
 static bool test_rzil_vm_basic_operation() {
-	RzILVM *vm = rz_il_vm_new(0, 8, 16);
+	RzBuffer *b = rz_buf_new_empty(0x100);
+	RzILVM *vm = rz_il_vm_new(0, 8, b, true);
 
 	// 1. create variables
 	RzILVar *var_r1 = rz_il_vm_create_global_variable(vm, "r1", RZIL_VAR_TYPE_UNK, true);
@@ -103,11 +106,13 @@ static bool test_rzil_vm_basic_operation() {
 
 	rz_bv_free(addr);
 	rz_il_vm_free(vm);
+	rz_buf_free(b);
 	mu_end;
 }
 
 static bool test_rzil_vm_operation() {
-	RzILVM *vm = rz_il_vm_new(0, 8, 16);
+	RzBuffer *b = rz_buf_new_empty(10);
+	RzILVM *vm = rz_il_vm_new(0, 8, b, false);
 
 	// 1. create register r0 and r1
 	rz_il_vm_add_reg(vm, "r0", 8);
@@ -133,11 +138,13 @@ static bool test_rzil_vm_operation() {
 	mu_assert("Init r1 as all zero bitvector", is_zero);
 
 	rz_il_vm_free(vm);
+	rz_buf_free(b);
 	mu_end;
 }
 
 static bool test_rzil_vm_root_evaluation() {
-	RzILVM *vm = rz_il_vm_new(0, 8, 16);
+	RzBuffer *b = rz_buf_new_empty(10);
+	RzILVM *vm = rz_il_vm_new(0, 8, b, false);
 
 	// (ite (add 23 19)
 	//	true
@@ -180,6 +187,7 @@ static bool test_rzil_vm_root_evaluation() {
 	rz_il_op_free(ite_root);
 	rz_il_op_free(branch_root);
 	rz_il_vm_free(vm);
+	rz_buf_free(b);
 	mu_end;
 }
 
