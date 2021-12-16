@@ -302,6 +302,13 @@ RZ_API RzCmdDesc *rz_cmd_desc_get_exec(RzCmdDesc *cd) {
 	}
 }
 
+#if 0
+_Bool print_cmd_ht(void* a, const void* key, const void* value) {
+	printf("Hey: %s, %s\n", (const char*)key, value);
+	return 1;
+}
+#endif
+
 RZ_API RzCmdDesc *rz_cmd_get_desc(RzCmd *cmd, const char *cmd_identifier) {
 	rz_return_val_if_fail(cmd && cmd_identifier, NULL);
 	char *cmdid = strdup(cmd_identifier);
@@ -310,6 +317,7 @@ RZ_API RzCmdDesc *rz_cmd_get_desc(RzCmd *cmd, const char *cmd_identifier) {
 	bool is_exact_match = true;
 	char last_letter = '\0', o_last_letter = end_cmdid > cmdid ? *(end_cmdid - 1) : '\0';
 	// match longer commands first
+	//ht_pp_foreach(cmd->ht_cmds, print_cmd_ht, NULL);
 	while (*cmdid) {
 		RzCmdDesc *cd = ht_pp_find(cmd->ht_cmds, cmdid, NULL);
 		if (cd) {

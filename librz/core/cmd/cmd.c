@@ -3929,6 +3929,16 @@ static char *ts_node_handle_arg(struct tsr2cmd_state *state, TSNode command, TSN
 	return str;
 }
 
+_Bool print_nonexisting_help(void* input, const void* cmd, const void* handler) {
+	if (!strncmp((const char*)input, (const char*)cmd, strlen((const char*)input))) {
+		if (strlen((const char*)input) != strlen((const char*)cmd)) {
+			printf("%s\n", (const char*)cmd);
+		}
+	}
+
+	return 1;
+}
+
 DEFINE_HANDLE_TS_FCN_AND_SYMBOL(arged_stmt) {
 	TSNode command = ts_node_child_by_field_name(node, "command", strlen("command"));
 	rz_return_val_if_fail(!ts_node_is_null(command), false);
@@ -4008,6 +4018,8 @@ DEFINE_HANDLE_TS_FCN_AND_SYMBOL(arged_stmt) {
 	} else if (res == RZ_CMD_STATUS_NONEXISTINGCMD) {
 		const char *cmdname = rz_cmd_parsed_args_cmd(pr_args);
 		eprintf("Command '%s' does not exist.\n", cmdname);
+		printf("Possible commands:\n");
+		ht_pp_foreach(state->core->rcmd->ht_cmds, print_nonexisting_help, (void*)cmdname);
 		if (rz_str_endswith(cmdname, "?") && pr_args->argc > 1) {
 			eprintf("Did you want to see the help? Try `%s` without any argument.\n", cmdname);
 		}
